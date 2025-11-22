@@ -1,0 +1,500 @@
+import requests
+from bs4 import BeautifulSoup
+from readability import Document
+import pandas as pd
+import json
+import uuid
+import re
+from datetime import datetime, timedelta
+from urllib.parse import urljoin, urlparse
+import time
+from typing import List, Dict, Any
+
+# -------------------------------------------------------
+# LOAD COMPANY KNOWLEDGE BASE
+# -------------------------------------------------------
+with open("../../knowledge/company.json", "r") as f:
+    KB = json.load(f)
+
+COMPANY_NAME = KB["company"]["name"]
+STOCK_SYMBOL = KB["company"]["stock_symbol"]
+INDUSTRY = KB["company"]["industry"]
+COMPETITORS = [c["name"] for c in KB["competitors"]]
+COMPETITOR_SYMBOLS = [c["stock_symbol"] for c in KB["competitors"]]
+RISK_KEYWORDS = sum(KB["risk_keywords"].values(), [])
+PRODUCT_TERMS = sum(KB["product_keywords"].values(), [])
+SENSITIVE_TOPICS = KB["sensitive_topics"]
+
+# -------------------------------------------------------
+# CURATED MARKET NEWS SOURCES
+# -------------------------------------------------------
+MARKET_SOURCES = {
+    "yahoo_finance": f"https://finance.yahoo.com/quote/{STOCK_SYMBOL}/news",
+    "reuters": "https://www.reuters.com/markets/",
+    "bloomberg": "https://www.bloomberg.com/markets",
+    "economic_times": "https://economictimes.indiatimes.com/markets",
+    "moneycontrol": "https://www.moneycontrol.com/news/business/markets/",
+    "cnbc": "https://www.cnbc.com/markets/",
+    "financial_times": "https://www.ft.com/markets"
+}
+
+# -------------------------------------------------------
+# TIME WINDOW: LAST 10 HOURS
+# -------------------------------------------------------
+TIME_WINDOW_HOURS = 10
+CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
+
+# -------------------------------------------------------
+# HELPER – CLEAN TEXT
+# -------------------------------------------------------
+def clean_text(text: str) -> str:
+    """Remove extra whitespace and clean text"""
+    return re.sub(r"\s+", " ", text).strip()
+
+# -------------------------------------------------------
+# HELPER – EXTRACT PUBLISHED TIME
+# -------------------------------------------------------
+def extract_publish_time(soup: BeautifulSoup, url: str) -> str:
+    """Extract published time from article"""
+    time_patterns = [
+        {"tag": "time", "attr": "datetime"},
+        {"tag": "meta", "attr": "content", "property": "article:published_time"},
+        {"tag": "span", "class": "timestamp"},
+        {"tag": "div", "class": "publish-date"}
+    ]
+    
+    for pattern in time_patterns:
+        if "property" in pattern:
+            elem = soup.find("meta", property=pattern["property"])
+        elif "class" in pattern:
+            elem = soup.find(pattern["tag"], class_=pattern["class"])
+        else:
+            elem = soup.find(pattern["tag"])
+            
+        if elem and pattern["attr"] in elem.attrs:
+            return elem[pattern["attr"]]
+        elif elem:
+            return elem.get_text(strip=True)
+    
+    return datetime.now().isoformat()
+
+# -------------------------------------------------------
+# HELPER – CHECK IF ARTICLE IS WITHIN TIME WINDOW
+# -------------------------------------------------------
+def is_within_time_window(publish_time_str: str) -> bool:
+    """Check if article was published within last 10 hours"""
+    try:
+        # Try multiple datetime formats
+        formats = [
+            "%Y-%m-%dT%H:%M:%S%z",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d %H:%M:%S",
+            "%d %b %Y, %I:%M %p",
+            "%B %d, %Y %I:%M %p"
+        ]
+        
+        publish_time = None
+        for fmt in formats:
+            try:
+                publish_time = datetime.strptime(publish_time_str.split('+')[0].strip(), fmt)
+                break
+            except:
+                continue
+        
+        if not publish_time:
+            # If unable to parse, include the article
+            return True
+            
+        return publish_time >= CUTOFF_TIME
+    except:
+        return True  # Include if unable to determine
+
+# -------------------------------------------------------
+# HELPER – EXTRACT HTML TABLES
+# -------------------------------------------------------
+def extract_tables(soup: BeautifulSoup) -> List[Dict[str, Any]]:
+    """Extract financial tables from article"""
+    html_tables = soup.find_all("table")
+    tables_json = []
+
+    for tbl in html_tables:
+        try:
+            df = pd.read_html(str(tbl))[0]
+            table_data = {
+                "table_title": "",
+                "headers": df.columns.tolist() if hasattr(df, 'columns') else [],
+                "rows": df.to_dict(orient="records")
+            }
+            
+            # Try to find table caption or title
+            caption = tbl.find("caption")
+            if caption:
+                table_data["table_title"] = clean_text(caption.get_text())
+            
+            tables_json.append(table_data)
+        except:
+            pass
+
+    return tables_json
+
+# -------------------------------------------------------
+# HELPER – EXTRACT IMAGES (MAX 3)
+# -------------------------------------------------------
+def extract_images(soup: BeautifulSoup) -> List[Dict[str, str]]:
+    """Extract max 3 relevant images/graphs"""
+    images = []
+    
+    for img in soup.find_all("img"):
+        if len(images) >= 3:
+            break
+            
+        src = img.get("src")
+        alt = img.get("alt", "")
+        
+        if not src:
+            continue
+        
+        # Skip small images, logos, icons
+        width = img.get("width", "")
+        height = img.get("height", "")
+        
+        if width and height:
+            try:
+                if int(width) < 200 or int(height) < 150:
+                    continue
+            except:
+                pass
+        
+        # Skip ads, logos, tracking pixels
+        if any(skip in src.lower() for skip in ["logo", "icon", "avatar", "ads", "banner", "pixel", "1x1"]):
+            continue
+        
+        images.append({
+            "image_url": src,
+            "image_alt": clean_text(alt)
+        })
+    
+    return images[:3]
+
+# -------------------------------------------------------
+# HELPER – EXTRACT NUMERICAL DATA
+# -------------------------------------------------------
+def extract_numbers(text: str) -> Dict[str, List[str]]:
+    """Extract financial numbers from text"""
+    numbers = {
+        "revenues": [],
+        "profit_loss": [],
+        "percent_changes": [],
+        "market_share": [],
+        "stock_price": []
+    }
+    
+    # Revenue patterns
+    revenue_patterns = [
+        r"revenue[s]?\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?",
+        r"sales\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?"
+    ]
+    
+    # Profit/Loss patterns
+    profit_patterns = [
+        r"profit[s]?\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?",
+        r"loss(?:es)?\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?"
+    ]
+    
+    # Percentage change patterns
+    percent_patterns = [
+        r"([\d,\.]+)%\s*(?:increase|decrease|rise|fall|up|down|gain|loss)",
+        r"(?:up|down|rise|fall)\s+([\d,\.]+)%"
+    ]
+    
+    # Stock price patterns
+    stock_patterns = [
+        r"(?:trading|traded|price)\s+(?:at\s+)?[\$₹]?\s*([\d,\.]+)",
+        r"[\$₹]\s*([\d,\.]+)\s+per\s+share"
+    ]
+    
+    text_lower = text.lower()
+    
+    for pattern in revenue_patterns:
+        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        # Convert tuples to strings if needed
+        numbers["revenues"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
+    
+    for pattern in profit_patterns:
+        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        numbers["profit_loss"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
+    
+    for pattern in percent_patterns:
+        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        numbers["percent_changes"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
+    
+    for pattern in stock_patterns:
+        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        numbers["stock_price"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
+    
+    # Remove empty strings
+    for key in numbers:
+        numbers[key] = [n for n in numbers[key] if n]
+    
+    return numbers
+
+# -------------------------------------------------------
+# HELPER – DETECT SENTIMENT
+# -------------------------------------------------------
+def detect_sentiment(text: str, analysis: Dict) -> str:
+    """Analyze sentiment: positive, negative, or neutral"""
+    text_lower = text.lower()
+    
+    positive_words = ["growth", "profit", "gain", "surge", "rise", "success", "innovation", "expansion", "strong", "bullish"]
+    negative_words = ["loss", "decline", "fall", "crash", "concern", "risk", "issue", "problem", "weak", "bearish"]
+    
+    pos_count = sum(1 for word in positive_words if word in text_lower)
+    neg_count = sum(1 for word in negative_words if word in text_lower)
+    
+    # Factor in risk terms and sensitive topics
+    neg_count += len(analysis.get("risk_tags_detected", [])) + len(analysis.get("sensitive_hits", []))
+    
+    if pos_count > neg_count + 1:
+        return "positive"
+    elif neg_count > pos_count + 1:
+        return "negative"
+    else:
+        return "neutral"
+
+# -------------------------------------------------------
+# HELPER – ANALYZE RELEVANCE
+# -------------------------------------------------------
+def analyze_relevance(text: str, title: str) -> Dict[str, Any]:
+    """Analyze article relevance to company"""
+    combined_text = (title + " " + text).lower()
+    
+    analysis = {
+        "company_match": COMPANY_NAME.lower() in combined_text or STOCK_SYMBOL.lower() in combined_text,
+        "competitor_mentions": [c for c in COMPETITORS if c.lower() in combined_text],
+        "stock_mentions": [STOCK_SYMBOL] if STOCK_SYMBOL.lower() in combined_text else [],
+        "risk_tags_detected": [w for w in RISK_KEYWORDS if w.lower() in combined_text],
+        "product_terms": [p for p in PRODUCT_TERMS if p.lower() in combined_text],
+        "sensitive_hits": [s for s in SENSITIVE_TOPICS if s.lower() in combined_text]
+    }
+    
+    # Add competitor stock symbols
+    for i, comp in enumerate(COMPETITORS):
+        if comp.lower() in combined_text:
+            symbol = COMPETITOR_SYMBOLS[i]
+            if symbol not in analysis["stock_mentions"]:
+                analysis["stock_mentions"].append(symbol)
+    
+    return analysis
+
+# -------------------------------------------------------
+# HELPER – DETERMINE RELEVANCE
+# -------------------------------------------------------
+def is_relevant(analysis: Dict, text: str) -> tuple[bool, str]:
+    """Determine if article is relevant to company"""
+    reasons = []
+    
+    if analysis["company_match"]:
+        reasons.append(f"Direct mention of {COMPANY_NAME}")
+    
+    if analysis["competitor_mentions"]:
+        reasons.append(f"Competitor mentions: {', '.join(analysis['competitor_mentions'])}")
+    
+    if analysis["risk_tags_detected"]:
+        reasons.append(f"Risk keywords: {', '.join(analysis['risk_tags_detected'][:3])}")
+    
+    if analysis["product_terms"]:
+        reasons.append(f"Product-related: {', '.join(analysis['product_terms'][:3])}")
+    
+    if analysis["sensitive_hits"]:
+        reasons.append(f"Sensitive topics: {', '.join(analysis['sensitive_hits'])}")
+    
+    # Check for industry mentions
+    if INDUSTRY.lower() in text.lower():
+        reasons.append(f"Industry mention: {INDUSTRY}")
+    
+    is_relevant = len(reasons) > 0
+    reason_str = " | ".join(reasons) if reasons else "No direct relevance found"
+    
+    return is_relevant, reason_str
+
+# -------------------------------------------------------
+# MAIN ARTICLE SCRAPER
+# -------------------------------------------------------
+def scrape_article(url: str) -> Dict[str, Any]:
+    """Scrape and analyze a single article"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    try:
+        res = requests.get(url, timeout=15, headers=headers)
+        doc = Document(res.text)
+        soup = BeautifulSoup(doc.summary(), "lxml")
+        full_soup = BeautifulSoup(res.text, "lxml")
+
+        title = clean_text(doc.short_title())
+        content_text = clean_text(soup.get_text())
+        published_time = extract_publish_time(full_soup, url)
+        
+        # Check time window
+        if not is_within_time_window(published_time):
+            return None
+
+        tables = extract_tables(full_soup)
+        images = extract_images(full_soup)
+        
+        # Analyze relevance
+        analysis = analyze_relevance(content_text, title)
+        is_rel, reason = is_relevant(analysis, content_text)
+        
+        # Extract numbers
+        numbers = extract_numbers(content_text)
+        
+        # Detect sentiment
+        sentiment = detect_sentiment(content_text, analysis)
+
+        article_json = {
+            "source": urlparse(url).netloc,
+            "title": title,
+            "url": url,
+            "published_time": published_time,
+            "content_text": content_text[:5000],  # Limit to 5000 chars
+            "relevant_tables": tables,
+            "graphs_images": images,
+            "related_to_company": is_rel,
+            "reason_for_relevance": reason,
+            "risk_tags_detected": analysis["risk_tags_detected"],
+            "sentiment": sentiment,
+            "competitor_mentions": analysis["competitor_mentions"],
+            "stock_mentions": analysis["stock_mentions"],
+            "extracted_numbers": numbers
+        }
+        
+        return article_json if is_rel else None
+        
+    except Exception as e:
+        print(f"    ❌ Error scraping {url[:80]}: {str(e)[:50]}")
+        return None
+
+# -------------------------------------------------------
+# SOURCE SCRAPER
+# -------------------------------------------------------
+def market_scraper(max_articles_per_source: int = 20) -> List[Dict[str, Any]]:
+    """Scrape market news from curated sources"""
+    all_articles = []
+    seen_urls = set()
+
+    print("=" * 80)
+    print(f"🚀 MARKET NEWS SCRAPER FOR {COMPANY_NAME}")
+    print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
+    print("=" * 80)
+
+    for source_name, source_url in MARKET_SOURCES.items():
+        print(f"\n🔍 Scraping: {source_name} ({source_url})")
+        
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            page = requests.get(source_url, timeout=15, headers=headers)
+            soup = BeautifulSoup(page.text, "lxml")
+
+            links = soup.find_all("a", href=True)
+            articles_from_source = 0
+
+            for a in links:
+                if articles_from_source >= max_articles_per_source:
+                    break
+                    
+                href = a.get("href")
+                if not href:
+                    continue
+
+                # Skip non-article links
+                if any(skip in href.lower() for skip in ["javascript", "#", "mailto:", "tel:"]):
+                    continue
+
+                # Make absolute URL
+                href = urljoin(source_url, href)
+                
+                # Skip duplicates
+                if href in seen_urls:
+                    continue
+                
+                # Only process article URLs
+                if not any(pattern in href for pattern in ["/news/", "/article/", "/story/", "/markets/", "/business/", "/quote/"]):
+                    continue
+
+                try:
+                    article_data = scrape_article(href)
+                    
+                    if article_data:
+                        all_articles.append(article_data)
+                        seen_urls.add(href)
+                        articles_from_source += 1
+                        print(f"    ✅ {article_data['title'][:60]}... | Sentiment: {article_data['sentiment']}")
+                    
+                    # Rate limiting
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    pass
+
+            print(f"✅ Found {articles_from_source} relevant articles from {source_name}")
+
+        except Exception as e:
+            print(f"❌ Failed to scrape {source_name}: {str(e)[:50]}")
+
+    return all_articles
+
+# -------------------------------------------------------
+# SAVE TO JSON
+# -------------------------------------------------------
+def save_to_json(articles: List[Dict[str, Any]], filepath: str = "data/market_news.json"):
+    """Save articles to JSON file"""
+    import os
+    
+    # Create data directory if it doesn't exist
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(articles, f, indent=2, ensure_ascii=False)
+    
+    print(f"\n💾 Saved to: {filepath}")
+
+# -------------------------------------------------------
+# RUN SCRAPER
+# -------------------------------------------------------
+if __name__ == "__main__":
+    start_time = time.time()
+    
+    articles = market_scraper(max_articles_per_source=15)
+    
+    # Sort by relevance (more mentions = higher priority)
+    articles.sort(key=lambda x: (
+        len(x["risk_tags_detected"]) + 
+        len(x["competitor_mentions"]) + 
+        len(x["stock_mentions"]) +
+        (10 if x["related_to_company"] else 0)
+    ), reverse=True)
+    
+    # Save to JSON
+    save_to_json(articles)
+    
+    elapsed = time.time() - start_time
+    
+    print("\n" + "=" * 80)
+    print(f"✅ MARKET NEWS SCRAPING COMPLETED!")
+    print(f"📊 Total Articles: {len(articles)}")
+    print(f"⏱️  Time Taken: {elapsed:.2f} seconds")
+    
+    if articles:
+        sentiment_dist = {}
+        for a in articles:
+            sentiment_dist[a["sentiment"]] = sentiment_dist.get(a["sentiment"], 0) + 1
+        
+        print(f"📈 Sentiment Distribution: {sentiment_dist}")
+        print(f"🏆 Top Article: {articles[0]['title'][:70]}...")
+        print(f"   Relevance: {articles[0]['reason_for_relevance'][:80]}...")
+    
+    print("=" * 80)

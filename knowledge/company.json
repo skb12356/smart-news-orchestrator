@@ -1,0 +1,88 @@
+{
+  "company": {
+    "name": "NovaTech Industries",
+    "industry": "Consumer Electronics & Smart Devices",
+    "headquarters": "Bangalore, India",
+    "founded": "2014",
+    "ceo": "Ananya Kumar",
+    "stock_symbol": "NOVA",
+    "core_business": [
+      "Smartphones",
+      "Wearables",
+      "IoT Home Devices",
+      "AI-Powered Appliances"
+    ]
+  },
+
+  "risk_keywords": {
+    "financial": [
+      "revenue",
+      "loss",
+      "profit drop",
+      "earnings",
+      "share price",
+      "dividend",
+      "market crash"
+    ],
+    "operational": [
+      "supply chain",
+      "manufacturing delay",
+      "chip shortage",
+      "production halt",
+      "factory accident"
+    ],
+    "competitive": [
+      "competitor launch",
+      "price war",
+      "market share",
+      "new product rival"
+    ],
+    "regulatory": [
+      "ban",
+      "compliance",
+      "fine",
+      "lawsuit",
+      "regulation"
+    ]
+  },
+
+  "competitors": [
+    {
+      "name": "ElectroWave Technologies",
+      "stock_symbol": "EWAV",
+      "key_products": ["Smartphones", "Smart TVs", "Gaming Consoles"]
+    },
+    {
+      "name": "Zenlo Devices",
+      "stock_symbol": "ZNLO",
+      "key_products": ["Wearables", "Health Trackers", "AI Speakers"]
+    },
+    {
+      "name": "Horizon Electronics",
+      "stock_symbol": "HZN",
+      "key_products": ["Laptops", "Smart Appliances"]
+    }
+  ],
+
+  "product_keywords": {
+    "smartphones": ["phone", "5G", "camera", "battery", "android", "launch"],
+    "wearables": ["smartwatch", "fitness tracker", "wearable", "health"],
+    "iot_devices": ["smart home", "iot", "automation", "smart light", "connected device"]
+  },
+
+  "sensitive_topics": [
+    "data breach",
+    "privacy issue",
+    "cyber attack",
+    "employee strike",
+    "layoffs",
+    "environmental violation"
+  ],
+
+  "stock_context": {
+    "previous_close_price": 218.50,
+    "market_cap_in_crores": 42600,
+    "volatility_rating": "Medium",
+    "analyst_sentiment": "Positive"
+  }
+}
