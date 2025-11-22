@@ -1,0 +1,41 @@
+[
+  {
+    "source": "www.linkedin.com",
+    "title": "User Agreement | LinkedIn",
+    "url": "https://www.linkedin.com/legal/user-agreement",
+    "published_time": "2025-11-22T18:08:55.614776",
+    "content_text": "By creating a LinkedIn account or accessing or using our Services (described below), you are agreeing to enter into a legally binding contract with LinkedIn (even if you are using third party credentials or using our Services on behalf of a company). If you do not agree to this contract (“Contract” or “User Agreement”), do not create an account or access or otherwise use any of our Services. If you wish to terminate this Contract at any time, you can do so by closing your account and no longer accessing or using our Services.As a Visitor or Member of our Services, the collection, use, and sharing of your personal data is subject to our Privacy Policy, our Cookie Policy and other documents referenced in our Privacy Policy, and updates. You acknowledge and have read our Privacy Policy. ServicesThis Contract applies to LinkedIn.com, LinkedIn-branded apps, and other LinkedIn-related sites, apps, communications, and other services that state that they are offered under this Contract (“Services”), including the offsite collection of data for those Services, such as via our ads and the “Apply with LinkedIn” and “Share with LinkedIn” plugins.LinkedIn and other Key TermsYou are entering into this Contract with LinkedIn (also referred to as “we” and “us”).Designated Countries. We use the term “Designated Countries” to refer to countries in the European Union (EU), European Economic Area (EEA), and Switzerland.If you reside in the “Designated Countries”, you are entering into this Contract with LinkedIn Ireland Unlimited Company (“LinkedIn Ireland”) and LinkedIn Ireland will be the controller of your personal data provided to, or collected by or for, or processed in connection with our Services.If you reside outside of the “Designated Countries”, you are entering into this Contract with LinkedIn Corporation (“LinkedIn Corp.”) and LinkedIn Corp. will be the controller of (or business responsible for) your personal data provided to, or collected by or for, or processed in connection with our Services.Affiliates. Affiliates are companies controlling, controlled by or under common control with us, including, for example, LinkedIn Ireland, LinkedIn Corporation, LinkedIn Singapore and Microsoft Corporation or any of its subsidiaries (e.g., Github, Inc.).Social Action. Actions that members take on our services such as likes, comments, follows, sharing content. Content. Content includes, for example, feed posts, feedback, comments, profiles, articles (and contributions), group posts, job postings, messages (including InMails), videos, photos, audio, and/or PDFs. 1.2 Members and Visitors",
+    "relevant_tables": [],
+    "graphs_images": [
+      {
+        "image_url": "https://static.licdn.com/aero-v1/sc/h/6zm111mce7vohqze950ilreo4",
+        "image_alt": "LinkedIn Logo"
+      },
+      {
+        "image_url": "https://static.licdn.com/aero-v1/sc/h/5g0hjlcng3j5pgn50n2et1ca2",
+        "image_alt": "LinkedIn Logo"
+      },
+      {
+        "image_url": "https://media.licdn.com/dms/image/v2/C4D08AQFXY7ga83Bafw/croft-frontend-shrinkToFit1024/croft-frontend-shrinkToFit1024/0/1598658592736?e=2147483647&v=beta&t=67ATyf8-3XnHufZtjTwE3_A6AzXU_zgz6GULBKHLBCQ",
+        "image_alt": ""
+      }
+    ],
+    "related_to_company": true,
+    "reason_for_relevance": "Competitor mentions: Microsoft Corporation",
+    "risk_tags_detected": [],
+    "sentiment": "neutral",
+    "competitor_mentions": [
+      "Microsoft Corporation"
+    ],
+    "stock_mentions": [
+      "MSFT"
+    ],
+    "extracted_numbers": {
+      "revenues": [],
+      "profit_loss": [],
+      "percent_changes": [],
+      "market_share": [],
+      "stock_price": []
+    }
+  }
+]

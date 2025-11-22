@@ -9,11 +9,6 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 import time
 from typing import List, Dict, Any
-import sys
-
-# Fix encoding for Windows console
-if sys.platform == 'win32':
-    sys.stdout.reconfigure(encoding='utf-8')
 
 # -------------------------------------------------------
 # LOAD COMPANY KNOWLEDGE BASE
@@ -31,19 +26,20 @@ PRODUCT_TERMS = sum(KB["product_keywords"].values(), [])
 SENSITIVE_TOPICS = KB["sensitive_topics"]
 
 # -------------------------------------------------------
-# TIME WINDOW: LAST 20 HOURS
+# TIME WINDOW: LAST 10 HOURS
 # -------------------------------------------------------
-TIME_WINDOW_HOURS = 20
+TIME_WINDOW_HOURS = 10
 CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
 
 # -------------------------------------------------------
-# CURATED FINANCIAL NEWS SOURCES (ACCESSIBLE TECH FOCUSED)
+# CURATED FINANCIAL NEWS SOURCES (TOP 2 TECH FOCUSED)
 # -------------------------------------------------------
 FINANCE_SOURCES = [
-    "https://economictimes.indiatimes.com/tech/technology",
-    "https://www.reuters.com/technology/",
-    "https://www.gadgets360.com/mobiles/news",
-    "https://www.theverge.com/tech",
+    "https://economictimes.indiatimes.com",
+    "https://www.reuters.com",
+    "https://www.bloomberg.com/markets",
+    "https://www.cnbc.com/world/?region=world",
+    "https://www.livemint.com/market",
 ]
 
 # -------------------------------------------------------
@@ -481,14 +477,8 @@ def save_to_json(articles: List[Dict[str, Any]], filename: str = "finance_news.j
 # RUN SCRAPER
 # -------------------------------------------------------
 if __name__ == "__main__":
-    start_time = time.time()
-    
     print("=" * 80)
-    print(f"🚀 FINANCE NEWS SCRAPER FOR {COMPANY_NAME}")
-    print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
-    print(f"⚡ SOURCES: 4 accessible tech sites (ET Tech, Reuters, Gadgets360, The Verge)")
-    print(f"🎯 Filter: STRICT - Only {COMPANY_NAME} and competitors")
-    print("=" * 80)
+    print(f"🚀 FINANCE NEWS CRAWLER FOR {COMPANY_NAME}")
     print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
     print(f"🎯 Filter: ONLY {COMPANY_NAME} and competitors ({', '.join(COMPETITORS)})")
     print(f"⚡ Testing with Economic Times (single source)")

@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 import time
 from typing import List, Dict, Any
+import sys
+
+# Fix encoding for Windows console
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
 
 # -------------------------------------------------------
 # LOAD COMPANY KNOWLEDGE BASE
@@ -26,20 +31,23 @@ PRODUCT_TERMS = sum(KB["product_keywords"].values(), [])
 SENSITIVE_TOPICS = KB["sensitive_topics"]
 
 # -------------------------------------------------------
-# CURATED MARKET NEWS SOURCES
+# TIME WINDOW: LAST 20 HOURS
+# -------------------------------------------------------
+TIME_WINDOW_HOURS = 20
+CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
+
+# -------------------------------------------------------
+# CURATED MARKET NEWS SOURCES (ACCESSIBLE TECH FOCUSED)
 # -------------------------------------------------------
 MARKET_SOURCES = {
-    "yahoo_finance": f"https://finance.yahoo.com/quote/{STOCK_SYMBOL}/news",
-    "reuters": "https://www.reuters.com/markets/",
-    "bloomberg": "https://www.bloomberg.com/markets",
-    "economic_times": "https://economictimes.indiatimes.com/markets",
-    "moneycontrol": "https://www.moneycontrol.com/news/business/markets/",
-    "cnbc": "https://www.cnbc.com/markets/",
-    "financial_times": "https://www.ft.com/markets"
+    "reuters_tech": "https://www.reuters.com/technology/",
+    "economic_times_tech": "https://economictimes.indiatimes.com/tech/technology",
+    "gadgets360_mobile": "https://www.gadgets360.com/mobiles/news",
+    "the_verge": "https://www.theverge.com/tech"
 }
 
 # -------------------------------------------------------
-# TIME WINDOW: LAST 10 HOURS
+# NOTE: TIME WINDOW ALREADY DEFINED ABOVE
 # -------------------------------------------------------
 TIME_WINDOW_HOURS = 10
 CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
@@ -120,6 +128,10 @@ def extract_tables(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     for tbl in html_tables:
         try:
             df = pd.read_html(str(tbl))[0]
+            
+            # Convert column names to strings (in case they are tuples from multi-index)
+            df.columns = [str(col) for col in df.columns]
+            
             table_data = {
                 "table_title": "",
                 "headers": df.columns.tolist() if hasattr(df, 'columns') else [],
@@ -387,6 +399,8 @@ def market_scraper(max_articles_per_source: int = 20) -> List[Dict[str, Any]]:
     print("=" * 80)
     print(f"🚀 MARKET NEWS SCRAPER FOR {COMPANY_NAME}")
     print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
+    print(f"⚡ SOURCES: 4 accessible tech sites (Reuters, ET Tech, Gadgets360, The Verge)")
+    print(f"🎯 Filter: STRICT - Only {COMPANY_NAME} and competitors")
     print("=" * 80)
 
     for source_name, source_url in MARKET_SOURCES.items():

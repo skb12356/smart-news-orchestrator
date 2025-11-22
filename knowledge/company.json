@@ -1,35 +1,33 @@
 {
   "company": {
-    "name": "NovaTech Industries",
-    "industry": "Consumer Electronics & Smart Devices",
-    "headquarters": "Bangalore, India",
-    "founded": "2014",
-    "ceo": "Ananya Kumar",
-    "stock_symbol": "NOVA",
+    "name": "Apple Inc.",
+    "industry": "Consumer Electronics & Software",
+    "headquarters": "Cupertino, California, USA",
+    "founded": "1976",
+    "ceo": "Tim Cook",
+    "stock_symbol": "AAPL",
     "core_business": [
-      "Smartphones",
-      "Wearables",
-      "IoT Home Devices",
-      "AI-Powered Appliances"
+      "iPhone",
+      "Mac",
+      "iPad",
+      "Wearables & Home",
+      "Services"
     ]
   },
-
   "risk_keywords": {
     "financial": [
       "revenue",
-      "loss",
-      "profit drop",
+      "profit",
       "earnings",
       "share price",
       "dividend",
       "market crash"
     ],
     "operational": [
-      "supply chain",
       "manufacturing delay",
-      "chip shortage",
-      "production halt",
-      "factory accident"
+      "supply chain",
+      "factory accident",
+      "chip shortage"
     ],
     "competitive": [
       "competitor launch",
@@ -42,34 +40,31 @@
       "compliance",
       "fine",
       "lawsuit",
-      "regulation"
+      "antitrust"
     ]
   },
-
   "competitors": [
     {
-      "name": "ElectroWave Technologies",
-      "stock_symbol": "EWAV",
-      "key_products": ["Smartphones", "Smart TVs", "Gaming Consoles"]
+      "name": "Samsung Electronics",
+      "stock_symbol": "005930.KS",
+      "key_products": ["Smartphones", "TVs", "Semiconductors"]
     },
     {
-      "name": "Zenlo Devices",
-      "stock_symbol": "ZNLO",
-      "key_products": ["Wearables", "Health Trackers", "AI Speakers"]
+      "name": "Google LLC",
+      "stock_symbol": "GOOGL",
+      "key_products": ["Android", "Search", "Cloud", "Wearables"]
     },
     {
-      "name": "Horizon Electronics",
-      "stock_symbol": "HZN",
-      "key_products": ["Laptops", "Smart Appliances"]
+      "name": "Microsoft Corporation",
+      "stock_symbol": "MSFT",
+      "key_products": ["PCs", "Cloud", "Software", "Gaming"]
     }
   ],
-
   "product_keywords": {
-    "smartphones": ["phone", "5G", "camera", "battery", "android", "launch"],
-    "wearables": ["smartwatch", "fitness tracker", "wearable", "health"],
-    "iot_devices": ["smart home", "iot", "automation", "smart light", "connected device"]
+    "smartphones": ["iPhone", "5G", "camera", "battery"],
+    "wearables": ["Apple Watch", "fitness tracker", "wearable", "health"],
+    "services": ["Apple Music", "App Store", "iCloud", "Apple TV+"]
   },
-
   "sensitive_topics": [
     "data breach",
     "privacy issue",
@@ -78,11 +73,10 @@
     "layoffs",
     "environmental violation"
   ],
-
   "stock_context": {
-    "previous_close_price": 218.50,
-    "market_cap_in_crores": 42600,
-    "volatility_rating": "Medium",
+    "previous_close_price": 170.25,
+    "market_cap_in_billions_usd": 2700,
+    "volatility_rating": "Low",
     "analyst_sentiment": "Positive"
   }
 }

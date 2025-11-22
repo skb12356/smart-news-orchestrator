@@ -37,14 +37,15 @@ TIME_WINDOW_HOURS = 20
 CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
 
 # -------------------------------------------------------
-# CURATED FINANCIAL NEWS SOURCES (ACCESSIBLE TECH FOCUSED)
+# CURATED BUSINESS NEWS SOURCES (ACCESSIBLE ALTERNATIVES)
+# Note: LinkedIn requires authentication, using accessible tech business sources
 # -------------------------------------------------------
-FINANCE_SOURCES = [
-    "https://economictimes.indiatimes.com/tech/technology",
-    "https://www.reuters.com/technology/",
-    "https://www.gadgets360.com/mobiles/news",
-    "https://www.theverge.com/tech",
-]
+LINKEDIN_SOURCES = {
+    "business_insider": "https://www.businessinsider.com/tech",
+    "cnet_news": "https://www.cnet.com/news/",
+    "zdnet_tech": "https://www.zdnet.com/topic/apple/",
+    "ars_technica": "https://arstechnica.com/gadgets/"
+}
 
 # -------------------------------------------------------
 # HELPER – CLEAN TEXT
@@ -85,8 +86,8 @@ def extract_publish_time(soup: BeautifulSoup, url: str) -> str:
 # -------------------------------------------------------
 def is_within_time_window(publish_time_str: str) -> bool:
     """Check if article was published within last 10 hours"""
-    """Check if article was published within last 10 hours"""
     try:
+        # Try multiple datetime formats
         formats = [
             "%Y-%m-%dT%H:%M:%S%z",
             "%Y-%m-%dT%H:%M:%S",
@@ -111,38 +112,6 @@ def is_within_time_window(publish_time_str: str) -> bool:
         return True
 
 # -------------------------------------------------------
-# HELPER – CHECK RELEVANCE TO COMPANY
-# -------------------------------------------------------
-def is_relevant_to_company(text, title):
-    """Check if article is relevant to company"""
-    combined_text = (title + " " + text).lower()
-    
-    # Check company name
-    if COMPANY_NAME.lower() in combined_text or STOCK_SYMBOL.lower() in combined_text:
-        return True, f"Direct mention of {COMPANY_NAME}"
-    
-    # Check competitors
-    competitors_found = [c for c in COMPETITORS if c.lower() in combined_text]
-    if competitors_found:
-        return True, f"Competitor mentions: {', '.join(competitors_found)}"
-    
-    # Check industry
-    if INDUSTRY.lower() in combined_text:
-        return True, f"Industry mention: {INDUSTRY}"
-    
-    # Check product terms (at least 2 matches for relevance)
-    product_matches = [p for p in PRODUCT_TERMS if p.lower() in combined_text]
-    if len(product_matches) >= 2:
-        return True, f"Product-related: {', '.join(product_matches[:3])}"
-    
-    # Check risk terms with company context
-    risk_matches = [r for r in RISK_KEYWORDS if r.lower() in combined_text]
-    if risk_matches and (COMPANY_NAME.lower() in combined_text or any(c.lower() in combined_text for c in COMPETITORS)):
-        return True, f"Risk keywords with company context: {', '.join(risk_matches[:3])}"
-    
-    return False, "No direct relevance to company"
-
-# -------------------------------------------------------
 # HELPER – EXTRACT HTML TABLES
 # -------------------------------------------------------
 def extract_tables(soup: BeautifulSoup) -> List[Dict[str, Any]]:
@@ -153,25 +122,45 @@ def extract_tables(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     for tbl in html_tables:
         try:
             df = pd.read_html(str(tbl))[0]
-            tables_json.append(df.to_dict(orient="records"))
+            
+            # Convert column names to strings (in case they are tuples from multi-index)
+            df.columns = [str(col) for col in df.columns]
+            
+            table_data = {
+                "table_title": "",
+                "headers": df.columns.tolist() if hasattr(df, 'columns') else [],
+                "rows": df.to_dict(orient="records")
+            }
+            
+            # Try to find table caption or title
+            caption = tbl.find("caption")
+            if caption:
+                table_data["table_title"] = clean_text(caption.get_text())
+            
+            tables_json.append(table_data)
         except:
             pass
 
     return tables_json
 
 # -------------------------------------------------------
-# HELPER – EXTRACT IMAGES
+# HELPER – EXTRACT IMAGES (MAX 3)
 # -------------------------------------------------------
-def extract_images(soup: BeautifulSoup) -> List[str]:
-    """Extract high-quality images from article (max 3)"""
+def extract_images(soup: BeautifulSoup) -> List[Dict[str, str]]:
+    """Extract max 3 relevant images/graphs"""
     images = []
     
     for img in soup.find_all("img"):
+        if len(images) >= 3:
+            break
+            
         src = img.get("src") or img.get("data-src")
         if not src:
             continue
         
-        # Skip small images, icons, logos
+        alt = img.get("alt", "")
+        
+        # Skip small images
         width = img.get("width", "")
         height = img.get("height", "")
         
@@ -182,26 +171,27 @@ def extract_images(soup: BeautifulSoup) -> List[str]:
             except:
                 pass
         
-        # Skip ads, tracking pixels, logos
-        if any(skip in src.lower() for skip in ["logo", "icon", "avatar", "ads", "banner", "pixel", "tracking"]):
+        # Skip ads, logos, tracking pixels
+        if any(skip in src.lower() for skip in ["logo", "icon", "avatar", "ads", "banner", "pixel", "1x1"]):
             continue
         
-        images.append(src)
-        
-        if len(images) >= 3:  # Max 3 images
-            break
+        images.append({
+            "image_url": src,
+            "image_alt": clean_text(alt)
+        })
     
-    return images
+    return images[:3]
 
 # -------------------------------------------------------
-# HELPER – EXTRACT NUMBERS FROM TEXT
+# HELPER – EXTRACT NUMERICAL DATA
 # -------------------------------------------------------
 def extract_numbers(text: str) -> Dict[str, List[str]]:
-    """Extract financial numbers, percentages, revenues, profits from text"""
+    """Extract financial numbers from text"""
     numbers = {
         "revenues": [],
         "profit_loss": [],
         "percent_changes": [],
+        "market_share": [],
         "stock_price": []
     }
     
@@ -211,7 +201,7 @@ def extract_numbers(text: str) -> Dict[str, List[str]]:
         r"sales\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?"
     ]
     
-    # Profit/loss patterns
+    # Profit/Loss patterns
     profit_patterns = [
         r"profit[s]?\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?",
         r"loss(?:es)?\s+(?:of\s+)?[\$₹]?\s*([\d,\.]+)\s*(?:million|billion|crore|lakh)?"
@@ -233,22 +223,19 @@ def extract_numbers(text: str) -> Dict[str, List[str]]:
     
     for pattern in revenue_patterns:
         matches = re.findall(pattern, text_lower, re.IGNORECASE)
-        # Convert tuples to strings
+        # Convert tuples to strings if needed
         numbers["revenues"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
     
     for pattern in profit_patterns:
         matches = re.findall(pattern, text_lower, re.IGNORECASE)
-        # Convert tuples to strings
         numbers["profit_loss"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
     
     for pattern in percent_patterns:
         matches = re.findall(pattern, text_lower, re.IGNORECASE)
-        # Convert tuples to strings
         numbers["percent_changes"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
     
     for pattern in stock_patterns:
         matches = re.findall(pattern, text_lower, re.IGNORECASE)
-        # Convert tuples to strings
         numbers["stock_price"].extend([m if isinstance(m, str) else str(m[0]) if m else "" for m in matches])
     
     # Remove empty strings
@@ -270,8 +257,8 @@ def detect_sentiment(text: str, analysis: Dict) -> str:
     pos_count = sum(1 for word in positive_words if word in text_lower)
     neg_count = sum(1 for word in negative_words if word in text_lower)
     
-    # Factor in risk terms and sensitive topics
-    neg_count += len(analysis.get("risk_tags_detected", [])) + len(analysis.get("sensitive_hits", []))
+    # Factor in risk tags
+    neg_count += len(analysis.get("risk_tags_detected", []))
     
     if pos_count > neg_count + 1:
         return "positive"
@@ -306,10 +293,10 @@ def analyze_relevance(text: str, title: str) -> Dict[str, Any]:
     return analysis
 
 # -------------------------------------------------------
-# HELPER – DETERMINE RELEVANCE
+# HELPER – DETERMINE RELEVANCE (STRICT FILTER)
 # -------------------------------------------------------
 def is_relevant(analysis: Dict, text: str) -> tuple[bool, str]:
-    """Determine if article is relevant to company - STRICT filter for company/competitors only"""
+    """Determine if article is relevant to company - STRICT filter"""
     reasons = []
     
     if analysis["company_match"]:
@@ -327,11 +314,7 @@ def is_relevant(analysis: Dict, text: str) -> tuple[bool, str]:
     if analysis["sensitive_hits"]:
         reasons.append(f"Sensitive topics: {', '.join(analysis['sensitive_hits'])}")
     
-    # Check for industry mentions
-    if INDUSTRY.lower() in text.lower():
-        reasons.append(f"Industry mention: {INDUSTRY}")
-    
-    # STRICT: Must have company OR competitor mention to be considered relevant
+    # STRICT: Must have company OR competitor mention
     is_relevant_article = analysis["company_match"] or len(analysis["competitor_mentions"]) > 0
     reason_str = " | ".join(reasons) if reasons else "No direct relevance found"
     
@@ -341,7 +324,7 @@ def is_relevant(analysis: Dict, text: str) -> tuple[bool, str]:
 # MAIN ARTICLE SCRAPER
 # -------------------------------------------------------
 def scrape_article(url: str) -> Dict[str, Any]:
-    """Scrape and analyze a single article - STRICT company/competitor filter"""
+    """Scrape and analyze a single article with STRICT company/competitor filter"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
@@ -367,10 +350,6 @@ def scrape_article(url: str) -> Dict[str, Any]:
         analysis = analyze_relevance(content_text, title)
         is_rel, reason = is_relevant(analysis, content_text)
         
-        # STRICT: Only include if relevant to company/competitors
-        if not is_rel:
-            return None
-        
         # Extract numbers
         numbers = extract_numbers(content_text)
         
@@ -394,30 +373,37 @@ def scrape_article(url: str) -> Dict[str, Any]:
             "extracted_numbers": numbers
         }
         
-        return article_json
+        return article_json if is_rel else None
         
     except Exception as e:
         print(f"    ❌ Error scraping {url[:80]}: {str(e)[:50]}")
         return None
 
 # -------------------------------------------------------
-# SOURCE SCRAPER (FINANCE CATEGORY)
+# SOURCE SCRAPER
 # -------------------------------------------------------
-def finance_scraper(max_articles_per_source: int = 30) -> List[Dict[str, Any]]:
-    """Scrape financial news from curated sources - ONLY company/competitor related"""
+def linkedin_scraper(max_articles_per_source: int = 20) -> List[Dict[str, Any]]:
+    """Scrape LinkedIn news from curated sources"""
     all_articles = []
     seen_urls = set()
 
-    for src in FINANCE_SOURCES:
-        print(f"\n🔍 Scraping: {src}")
+    print("=" * 80)
+    print(f"🚀 BUSINESS NEWS SCRAPER FOR {COMPANY_NAME}")
+    print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
+    print(f"⚡ SOURCES: 4 accessible business/tech sites (Business Insider, CNET, ZDNet, Ars Technica)")
+    print(f"🎯 Filter: STRICT - Only {COMPANY_NAME} and competitors")
+    print("=" * 80)
+
+    for source_name, source_url in LINKEDIN_SOURCES.items():
+        print(f"\n🔍 Scraping: {source_name} ({source_url})")
+        
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-            page = requests.get(src, timeout=15, headers=headers)
+            page = requests.get(source_url, timeout=15, headers=headers)
             soup = BeautifulSoup(page.text, "lxml")
 
-            # all clickable links
             links = soup.find_all("a", href=True)
             articles_from_source = 0
 
@@ -426,100 +412,81 @@ def finance_scraper(max_articles_per_source: int = 30) -> List[Dict[str, Any]]:
                     break
                     
                 href = a.get("href")
-                if not href: continue
+                if not href:
+                    continue
 
-                # skip ads, anchors, and javascript
+                # Skip non-article links
                 if any(skip in href.lower() for skip in ["javascript", "#", "mailto:", "tel:"]):
                     continue
 
-                # absolute URL fix
-                href = urljoin(src, href)
-                
-                # Skip duplicates
+                # Make absolute URL
+                href = urljoin(source_url, href)
+
+                # Skip if already seen
                 if href in seen_urls:
                     continue
-                    
-                # Only process article-like URLs
-                if not any(pattern in href for pattern in ["/news/", "/article/", "/story/", "/markets/", "/business/"]):
-                    continue
 
-                try:
-                    article_data = scrape_article(href)
-                    
-                    # Article is None if not relevant or outside time window
-                    if article_data:
-                        all_articles.append(article_data)
-                        seen_urls.add(href)
-                        articles_from_source += 1
-                        print(f"  ✅ {article_data['title'][:60]}... | {article_data['sentiment']}")
-                    
-                    # Rate limiting
-                    time.sleep(0.5)
-                    
-                except Exception as e:
-                    pass
+                seen_urls.add(href)
 
-            print(f"✅ Found {articles_from_source} relevant articles from {urlparse(src).netloc}")
+                # Scrape article
+                article_data = scrape_article(href)
+                
+                if article_data:
+                    all_articles.append(article_data)
+                    articles_from_source += 1
+                    print(f"    ✅ {article_data['title'][:60]}... | Sentiment: {article_data['sentiment']}")
+                
+                time.sleep(0.5)  # Respectful crawling
+
+            print(f"✅ Found {articles_from_source} relevant articles from {source_name}")
 
         except Exception as e:
-            print(f"❌ Failed to scrape {urlparse(src).netloc}: {str(e)[:50]}")
-            pass
+            print(f"❌ Error scraping {source_name}: {str(e)[:100]}")
+            continue
 
     return all_articles
-
 
 # -------------------------------------------------------
 # SAVE TO JSON
 # -------------------------------------------------------
-def save_to_json(articles: List[Dict[str, Any]], filename: str = "finance_news.json"):
-    """Save scraped articles to JSON file"""
-    with open(filename, "w", encoding="utf-8") as f:
+def save_to_json(articles: List[Dict[str, Any]]):
+    """Save articles to JSON file"""
+    output_path = "data/linkedin_news.json"
+    
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(articles, f, indent=2, ensure_ascii=False)
-    print(f"\n💾 Saved {len(articles)} articles to {filename}")
+    
+    print(f"\n💾 Saved to: {output_path}")
 
 # -------------------------------------------------------
-# RUN SCRAPER
+# MAIN EXECUTION
 # -------------------------------------------------------
 if __name__ == "__main__":
     start_time = time.time()
     
-    print("=" * 80)
-    print(f"🚀 FINANCE NEWS SCRAPER FOR {COMPANY_NAME}")
-    print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
-    print(f"⚡ SOURCES: 4 accessible tech sites (ET Tech, Reuters, Gadgets360, The Verge)")
-    print(f"🎯 Filter: STRICT - Only {COMPANY_NAME} and competitors")
-    print("=" * 80)
-    print(f"📅 Time Window: Last {TIME_WINDOW_HOURS} hours")
-    print(f"🎯 Filter: ONLY {COMPANY_NAME} and competitors ({', '.join(COMPETITORS)})")
-    print(f"⚡ Testing with Economic Times (single source)")
-    print("=" * 80)
-    
-    start_time = time.time()
-    data = finance_scraper(max_articles_per_source=10)
+    # Scrape articles
+    articles = linkedin_scraper(max_articles_per_source=15)
     
     # Save results
-    save_to_json(data, "finance_news.json")
+    if articles:
+        save_to_json(articles)
     
-    elapsed = time.time() - start_time
-    
+    # Print summary
     print("\n" + "=" * 80)
-    print(f"✅ FINANCE NEWS SCRAPED SUCCESSFULLY!")
-    print(f"📊 Total Relevant Articles: {len(data)}")
-    print(f"⏱️  Time Taken: {elapsed:.2f} seconds")
+    print("✅ BUSINESS NEWS SCRAPING COMPLETED!")
+    print(f"📊 Total Articles: {len(articles)}")
+    print(f"⏱️  Time Taken: {time.time() - start_time:.2f} seconds")
     
-    if data:
-        print(f"\n📈 Sentiment Distribution:")
-        sentiments = {"positive": 0, "neutral": 0, "negative": 0}
-        for article in data:
-            sentiments[article["sentiment"]] += 1
-        for sentiment, count in sentiments.items():
-            print(f"   {sentiment.capitalize()}: {count}")
+    if articles:
+        sentiments = {}
+        for article in articles:
+            sent = article.get("sentiment", "unknown")
+            sentiments[sent] = sentiments.get(sent, 0) + 1
         
-        print(f"\n🏆 Top Article: {data[0]['title'][:70]}...")
-        print(f"   Reason: {data[0]['reason_for_relevance'][:70]}...")
-        print(f"   Sentiment: {data[0]['sentiment']}")
-        print(f"   Stock Mentions: {', '.join(data[0]['stock_mentions']) if data[0]['stock_mentions'] else 'None'}")
-    else:
-        print(f"\n⚠️  No articles found for {COMPANY_NAME} or competitors in the last {TIME_WINDOW_HOURS} hours")
+        print(f"📈 Sentiment Distribution: {sentiments}")
+        
+        top_article = articles[0]
+        print(f"🏆 Top Article: {top_article['title'][:60]}...")
+        print(f"   Relevance: {top_article['reason_for_relevance'][:80]}...")
     
     print("=" * 80)
