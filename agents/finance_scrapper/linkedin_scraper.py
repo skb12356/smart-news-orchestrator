@@ -330,7 +330,8 @@ def scrape_article(url: str) -> Dict[str, Any]:
     }
     
     try:
-        res = requests.get(url, timeout=15, headers=headers)
+        res = requests.get(url, timeout=8, headers=headers)
+        res.raise_for_status()  # Raise error for bad status codes
         doc = Document(res.text)
         soup = BeautifulSoup(doc.summary(), "lxml")
         full_soup = BeautifulSoup(res.text, "lxml")
@@ -375,8 +376,11 @@ def scrape_article(url: str) -> Dict[str, Any]:
         
         return article_json if is_rel else None
         
-    except Exception as e:
-        print(f"    ❌ Error scraping {url[:80]}: {str(e)[:50]}")
+    except (requests.Timeout, requests.ConnectionError, requests.RequestException):
+        # Skip silently for network errors
+        return None
+    except Exception:
+        # Skip silently for parsing errors
         return None
 
 # -------------------------------------------------------
@@ -401,32 +405,35 @@ def linkedin_scraper(max_articles_per_source: int = 20) -> List[Dict[str, Any]]:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-            page = requests.get(source_url, timeout=15, headers=headers)
+            page = requests.get(source_url, timeout=10, headers=headers)
             soup = BeautifulSoup(page.text, "lxml")
 
             links = soup.find_all("a", href=True)
             articles_from_source = 0
+            attempts = 0
+            max_attempts = 30  # Only try 30 links per source to avoid hanging
 
             for a in links:
-                if articles_from_source >= max_articles_per_source:
+                if articles_from_source >= max_articles_per_source or attempts >= max_attempts:
                     break
                     
                 href = a.get("href")
                 if not href:
                     continue
 
-                # Skip non-article links
-                if any(skip in href.lower() for skip in ["javascript", "#", "mailto:", "tel:"]):
+                # Skip non-article links and social media
+                if any(skip in href.lower() for skip in ["javascript", "#", "mailto:", "tel:", "twitter", "facebook", "linkedin", "instagram"]):
                     continue
 
                 # Make absolute URL
                 href = urljoin(source_url, href)
 
-                # Skip if already seen
-                if href in seen_urls:
+                # Skip if already seen or not http/https
+                if href in seen_urls or not href.startswith(('http://', 'https://')):
                     continue
 
                 seen_urls.add(href)
+                attempts += 1
 
                 # Scrape article
                 article_data = scrape_article(href)

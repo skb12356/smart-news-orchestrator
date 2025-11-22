@@ -47,12 +47,6 @@ INDUSTRY_SOURCES = {
 }
 
 # -------------------------------------------------------
-# NOTE: TIME WINDOW ALREADY DEFINED ABOVE
-# -------------------------------------------------------
-TIME_WINDOW_HOURS = 10
-CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
-
-# -------------------------------------------------------
 # HELPER – CLEAN TEXT
 # -------------------------------------------------------
 def clean_text(text: str) -> str:
@@ -342,8 +336,12 @@ def is_relevant(analysis: Dict[str, Any], text: str) -> tuple[bool, str]:
 # -------------------------------------------------------
 def scrape_article(url: str) -> Dict[str, Any]:
     """Scrape a single article and return structured data"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=8, headers=headers)
         soup = BeautifulSoup(response.text, "lxml")
         
         # Use readability to extract main content
@@ -393,8 +391,11 @@ def scrape_article(url: str) -> Dict[str, Any]:
         
         return article_json if is_rel else None
         
-    except Exception as e:
-        print(f"    ❌ Error scraping {url[:80]}: {str(e)[:50]}")
+    except (requests.Timeout, requests.ConnectionError, requests.RequestException):
+        # Skip silently for network errors (common with blocked/slow sites)
+        return None
+    except Exception:
+        # Skip silently for parsing errors
         return None
 
 # -------------------------------------------------------
@@ -419,32 +420,35 @@ def industry_scraper(max_articles_per_source: int = 20) -> List[Dict[str, Any]]:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
-            page = requests.get(source_url, timeout=15, headers=headers)
+            page = requests.get(source_url, timeout=10, headers=headers)
             soup = BeautifulSoup(page.text, "lxml")
 
             links = soup.find_all("a", href=True)
             articles_from_source = 0
+            attempts = 0
+            max_attempts = 30  # Only try 30 links per source to avoid hanging
 
             for a in links:
-                if articles_from_source >= max_articles_per_source:
+                if articles_from_source >= max_articles_per_source or attempts >= max_attempts:
                     break
                     
                 href = a.get("href")
                 if not href:
                     continue
 
-                # Skip non-article links
-                if any(skip in href.lower() for skip in ["javascript", "#", "mailto:", "tel:"]):
+                # Skip non-article links and external domains
+                if any(skip in href.lower() for skip in ["javascript", "#", "mailto:", "tel:", "tiktok", "twitter", "facebook", "instagram"]):
                     continue
 
                 # Make absolute URL
                 href = urljoin(source_url, href)
                 
-                # Skip if already seen
-                if href in seen_urls:
+                # Skip if already seen or not http/https
+                if href in seen_urls or not href.startswith(('http://', 'https://')):
                     continue
                 
                 seen_urls.add(href)
+                attempts += 1
                 
                 # Scrape the article
                 article = scrape_article(href)

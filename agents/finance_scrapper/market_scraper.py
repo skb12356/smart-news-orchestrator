@@ -47,12 +47,6 @@ MARKET_SOURCES = {
 }
 
 # -------------------------------------------------------
-# NOTE: TIME WINDOW ALREADY DEFINED ABOVE
-# -------------------------------------------------------
-TIME_WINDOW_HOURS = 10
-CUTOFF_TIME = datetime.now() - timedelta(hours=TIME_WINDOW_HOURS)
-
-# -------------------------------------------------------
 # HELPER – CLEAN TEXT
 # -------------------------------------------------------
 def clean_text(text: str) -> str:
