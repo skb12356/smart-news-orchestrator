@@ -1,0 +1,82 @@
+{
+  "company": {
+    "name": "Apple Inc.",
+    "industry": "Consumer Electronics & Software",
+    "headquarters": "Cupertino, California, USA",
+    "founded": "1976",
+    "ceo": "Tim Cook",
+    "stock_symbol": "AAPL",
+    "core_business": [
+      "iPhone",
+      "Mac",
+      "iPad",
+      "Wearables & Home",
+      "Services"
+    ]
+  },
+  "risk_keywords": {
+    "financial": [
+      "revenue",
+      "profit",
+      "earnings",
+      "share price",
+      "dividend",
+      "market crash"
+    ],
+    "operational": [
+      "manufacturing delay",
+      "supply chain",
+      "factory accident",
+      "chip shortage"
+    ],
+    "competitive": [
+      "competitor launch",
+      "price war",
+      "market share",
+      "new product rival"
+    ],
+    "regulatory": [
+      "ban",
+      "compliance",
+      "fine",
+      "lawsuit",
+      "antitrust"
+    ]
+  },
+  "competitors": [
+    {
+      "name": "Samsung Electronics",
+      "stock_symbol": "005930.KS",
+      "key_products": ["Smartphones", "TVs", "Semiconductors"]
+    },
+    {
+      "name": "Google LLC",
+      "stock_symbol": "GOOGL",
+      "key_products": ["Android", "Search", "Cloud", "Wearables"]
+    },
+    {
+      "name": "Microsoft Corporation",
+      "stock_symbol": "MSFT",
+      "key_products": ["PCs", "Cloud", "Software", "Gaming"]
+    }
+  ],
+  "product_keywords": {
+    "smartphones": ["iPhone", "5G", "camera", "battery"],
+    "wearables": ["Apple Watch", "fitness tracker", "wearable", "health"],
+    "services": ["Apple Music", "App Store", "iCloud", "Apple TV+"]
+  },
+  "sensitive_topics": [
+    "data breach",
+    "privacy issue",
+    "cyber attack",
+    "employee strike",
+    "layoffs",
+    "environmental violation"
+  ],
+  "stock_context": {
+    "previous_close_price": 170.25,
+    "market_cap_in_billions_usd": 2700,
+    "volatility_rating": "Low",
+    "analyst_sentiment": "Positive"
+  }
+}

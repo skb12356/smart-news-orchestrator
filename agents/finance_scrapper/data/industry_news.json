@@ -1,0 +1,30 @@
+[
+  {
+    "source": "policies.google.com",
+    "title": "Google Terms of Service - Privacy & Terms - Google",
+    "url": "https://policies.google.com/terms",
+    "published_time": "2025-11-22T18:10:36.227188",
+    "content_text": "Your relationship with GoogleThese terms help define the relationship between you and Google. When we speak of “Google,” “we,” “us,” and “our,” we mean Google LLC and its affiliates, excluding any local entities based in India. Broadly speaking, we give you permission to access and use our services if you agree to follow these terms, which reflect how Google’s business works and how we earn money.What you can expect from usProvide a broad range of useful servicesWe provide a broad range of services that are subject to these terms, including:apps and sites (like Search and Maps)platforms (like Google Shopping)integrated services (like Maps embedded in other companies’ apps or sites)devices (like Google Nest and Pixel)Many of these services also include content that you can stream or interact with.Our services are designed to work together, making it easier for you to move from one activity to the next. For example, if your Calendar event includes an address, you can click on that address and Maps can show you how to get there.Develop, improve, and update Google servicesWe’re constantly developing new technologies and features to improve our services. For example, we use artificial intelligence and machine learning to provide you with simultaneous translations, and to better detect and block spam and malware. As part of this continual improvement, we sometimes add or remove features and functionalities, increase or decrease limits to our services, and start offering new services or stop offering old ones. When a service requires or includes downloadable or preloaded software, that software sometimes updates automatically on your device once a new version or feature is available. Some services let you adjust your automatic update settings.If we make material changes that negatively impact your use of our services or if we stop offering a service, we’ll provide you with reasonable advance notice, except in urgent situations such as preventing abuse, responding to legal requirements, or addressing security and operability issues. We’ll also provide you with an opportunity to export your content from your Google Account using Google Takeout, subject to applicable law and policies.What we expect from youFollow these terms and service-specific additional termsThe permission we give you to access and use our services continues as long as you comply with:We also make various policies, help centers, and other resources available to you to answer common questions and to set expectations about using our services. These resources include our Privacy Policy, Copyright Help Center, Safety Center, Transparency Center, and other pages accessible from our policies site. Finally, we may provide specific instructions and warnings within our services – such as dialog boxes that alert you to important information.Although we give you permission to use our services, we retain any intellectual property rights we have in the services.Respect othersWe want to maintain a respectful environment for everyone, which means you must follow these basic rules of conduct:comply with applicable laws, including export control, sanctions, money laundering, and human trafficking lawsrespect the rights of others, including privacy and intellectual property rightsdon’t abuse or harm others or yourself (or threaten or encourage such abuse or harm) including against children — for example, by misleading, defrauding, illegally impersonating, defaming, bullying, harassing, or stalking others; hosting or publishing any obscene content; or inciting the violation of applicable lawsOur service-specific additional terms and policies, such as our Generative AI Prohibited Use Policy, provide additional details about appropriate conduct that everyone using those services must follow. If you find that others aren’t following these rules, many of our services allow you to report abuse. If we act on a report of abuse, we also provide the process described in the Taking action in case of problems section.Don’t abuse our servicesMost people who access or use our services understand the general rules that keep the internet safe and open. Unfortunately, a small number of people don’t respect those rules, so we’re describing them here to protect our services and users from abuse. In that spirit:You must not abuse, harm, interfere with, or disrupt our services or systems — for example, by:introducing malwarespamming, hacking, or bypassing our systems or protective measuresjailbreaking, adversarial prompting, or prompt injection, except as part of our safety and bug testing programsaccessing or using our services or content in fraudulent or deceptive ways, such as:phishingcreating fake accounts or content, including fake reviewsmisleading others into thinking that generative AI content was created by a humanproviding services that appear to originate from you (or someone else) when they actually originate from usproviding services that appear to originate from us when t",
+    "relevant_tables": [],
+    "graphs_images": [],
+    "related_to_company": true,
+    "reason_for_relevance": "Competitor mentions: Google LLC | Risk keywords: fine",
+    "risk_tags_detected": [
+      "fine"
+    ],
+    "sentiment": "negative",
+    "competitor_mentions": [
+      "Google LLC"
+    ],
+    "stock_mentions": [
+      "GOOGL"
+    ],
+    "extracted_numbers": {
+      "revenues": [],
+      "profit_loss": [],
+      "percent_changes": [],
+      "market_share": [],
+      "stock_price": []
+    }
+  }
+]
