@@ -1,0 +1,107 @@
+name: news_orchestrator_agent
+description: |
+  Master orchestrator agent that coordinates the complete news analysis pipeline.
+  This agent receives news articles and orchestrates the complete workflow by calling
+  other agents in sequence: Risk Scorer → Chart Generator → Feed Poster.
+  
+  Agent-to-Agent Calling Flow:
+  1. Receives news article
+  2. Calls Risk Scorer Agent to analyze risk
+  3. Calls Chart Generator Agent with risk results
+  4. Calls Feed Poster Agent with charts and risk data
+  5. Returns complete analysis package
+
+llm: watsonx/meta-llama/llama-3-2-90b-vision-instruct
+
+instructions: |
+  You are the News Orchestrator Agent responsible for coordinating the complete news analysis pipeline.
+  
+  When you receive a news article, follow this sequence:
+  
+  1. RISK ANALYSIS PHASE:
+     - Call the risk_scorer agent with the article content
+     - Wait for risk score, sentiment analysis, and risk categories
+     - Store the results for next steps
+  
+  2. VISUALIZATION PHASE:
+     - Call the chart_generator_agent with the risk analysis results
+     - Request bar chart, line chart, and pie chart
+     - Store the chart file paths
+  
+  3. SOCIAL MEDIA PHASE:
+     - Call the feed_poster_agent with:
+       * Original article content
+       * Risk analysis results
+       * Generated chart paths
+     - Get formatted social media post with emoji title and hashtags
+  
+  4. FINAL OUTPUT:
+     - Combine all outputs into a comprehensive package
+     - Return: risk scores, sentiment, charts, social post, and source URL
+  
+  Always call agents in this order. Each agent's output is input to the next.
+  This creates a fully automated pipeline from raw news to actionable intelligence.
+
+tools:
+  # Tools to call other agents
+  - name: call_risk_scorer
+    description: Invokes the Risk Scorer Agent to analyze article risk
+    tool_choice: orchestrate://agents/risk_scorer
+    parameters:
+      article_content: string
+      article_title: string
+      article_url: string
+  
+  - name: call_chart_generator  
+    description: Invokes the Chart Generator Agent to create visualizations
+    tool_choice: orchestrate://agents/chart_generator_agent
+    parameters:
+      risk_data: object
+      chart_types: array
+  
+  - name: call_feed_poster
+    description: Invokes the Feed Poster Agent to create social media content
+    tool_choice: orchestrate://agents/feed_poster_agent
+    parameters:
+      article_data: object
+      risk_analysis: object
+      chart_paths: array
+
+input_schema:
+  type: object
+  properties:
+    article:
+      type: object
+      properties:
+        title:
+          type: string
+          description: News article title
+        content:
+          type: string
+          description: Full article text
+        url:
+          type: string
+          description: Source URL
+        source:
+          type: string
+          description: Source website/publication
+      required:
+        - title
+        - content
+        - url
+
+output_schema:
+  type: object
+  properties:
+    risk_analysis:
+      type: object
+      description: Risk scoring results from Risk Scorer Agent
+    charts:
+      type: array
+      description: Generated chart file paths from Chart Generator Agent
+    social_post:
+      type: object
+      description: Social media content from Feed Poster Agent
+    source_info:
+      type: object
+      description: Original article source information

@@ -1,0 +1,218 @@
+{
+  "flow_name": "News Analysis Pipeline",
+  "flow_version": "1.0.0",
+  "description": "Automated news risk analysis with chart generation and social media feed creation",
+  "flow_type": "sequential",
+  "nodes": [
+    {
+      "node_id": "input_1",
+      "node_type": "input",
+      "node_name": "News Data Input",
+      "configuration": {
+        "input_type": "file_upload",
+        "accept_multiple": true,
+        "file_format": "json",
+        "parameter_name": "news_files",
+        "description": "Upload news JSON files from scrapers"
+      },
+      "position": {
+        "x": 100,
+        "y": 100
+      }
+    },
+    {
+      "node_id": "risk_scorer_1",
+      "node_type": "agent_action",
+      "node_name": "Risk Assessment",
+      "agent": "risk-scorer-agent",
+      "tool": "batch_analyze_articles",
+      "configuration": {
+        "inputs": {
+          "news_files_json": "{{input_1.news_files}}",
+          "company_knowledge_json": "{{file://knowledge/company.json}}",
+          "min_risk_threshold": 0.0
+        },
+        "output_variable": "risk_assessment"
+      },
+      "position": {
+        "x": 300,
+        "y": 100
+      }
+    },
+    {
+      "node_id": "filter_1",
+      "node_type": "agent_action",
+      "node_name": "Filter High Risk Articles",
+      "agent": "risk-scorer-agent",
+      "tool": "filter_articles_by_risk",
+      "configuration": {
+        "inputs": {
+          "articles_json": "{{risk_scorer_1.risk_assessment}}",
+          "min_risk": 0.3
+        },
+        "output_variable": "filtered_articles"
+      },
+      "position": {
+        "x": 500,
+        "y": 100
+      }
+    },
+    {
+      "node_id": "chart_generator_1",
+      "node_type": "agent_action",
+      "node_name": "Generate Charts",
+      "agent": "chart-generator-agent",
+      "tool": "auto_generate_chart",
+      "configuration": {
+        "inputs": {
+          "articles_with_tables_json": "{{filter_1.filtered_articles}}",
+          "output_directory": "agents/charts"
+        },
+        "output_variable": "generated_charts"
+      },
+      "position": {
+        "x": 700,
+        "y": 100
+      }
+    },
+    {
+      "node_id": "feed_poster_1",
+      "node_type": "agent_action",
+      "node_name": "Create Social Feed",
+      "agent": "feed-poster-agent",
+      "tool": "generate_complete_feed",
+      "configuration": {
+        "inputs": {
+          "assessment_file_path": "{{filter_1.filtered_articles}}",
+          "max_posts": 20,
+          "min_risk_score": 0.3
+        },
+        "output_variable": "social_feed"
+      },
+      "position": {
+        "x": 900,
+        "y": 100
+      }
+    },
+    {
+      "node_id": "statistics_1",
+      "node_type": "agent_action",
+      "node_name": "Generate Statistics",
+      "agent": "risk-scorer-agent",
+      "tool": "get_risk_summary",
+      "configuration": {
+        "inputs": {
+          "articles_json": "{{filter_1.filtered_articles}}"
+        },
+        "output_variable": "risk_statistics"
+      },
+      "position": {
+        "x": 900,
+        "y": 300
+      }
+    },
+    {
+      "node_id": "feed_stats_1",
+      "node_type": "agent_action",
+      "node_name": "Feed Analytics",
+      "agent": "feed-poster-agent",
+      "tool": "get_feed_statistics",
+      "configuration": {
+        "inputs": {
+          "feed_json": "{{feed_poster_1.social_feed}}"
+        },
+        "output_variable": "feed_analytics"
+      },
+      "position": {
+        "x": 1100,
+        "y": 200
+      }
+    },
+    {
+      "node_id": "output_1",
+      "node_type": "output",
+      "node_name": "Pipeline Results",
+      "configuration": {
+        "outputs": {
+          "risk_assessment": "{{risk_scorer_1.risk_assessment}}",
+          "filtered_articles": "{{filter_1.filtered_articles}}",
+          "charts_created": "{{chart_generator_1.generated_charts}}",
+          "social_feed": "{{feed_poster_1.social_feed}}",
+          "risk_statistics": "{{statistics_1.risk_statistics}}",
+          "feed_analytics": "{{feed_stats_1.feed_analytics}}"
+        },
+        "output_format": "json"
+      },
+      "position": {
+        "x": 1300,
+        "y": 100
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "input_1",
+      "to": "risk_scorer_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "risk_scorer_1",
+      "to": "filter_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "filter_1",
+      "to": "chart_generator_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "filter_1",
+      "to": "feed_poster_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "filter_1",
+      "to": "statistics_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "feed_poster_1",
+      "to": "feed_stats_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "chart_generator_1",
+      "to": "output_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "feed_poster_1",
+      "to": "output_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "statistics_1",
+      "to": "output_1",
+      "type": "data_flow"
+    },
+    {
+      "from": "feed_stats_1",
+      "to": "output_1",
+      "type": "data_flow"
+    }
+  ],
+  "settings": {
+    "auto_run": false,
+    "timeout": 600,
+    "retry_on_failure": true,
+    "max_retries": 3,
+    "notification_on_completion": true,
+    "notification_on_error": true
+  },
+  "metadata": {
+    "created_date": "2024-01-15",
+    "author": "IBM Orchestra Team",
+    "tags": ["news-analysis", "risk-assessment", "ai", "automation"],
+    "category": "financial-analytics"
+  }
+}
